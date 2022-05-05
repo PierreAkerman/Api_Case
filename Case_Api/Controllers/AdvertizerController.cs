@@ -1,5 +1,7 @@
-﻿using Case_Api.Data;
+﻿using AutoMapper;
+using Case_Api.Data;
 using Case_Api.DTO;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Case_Api.Controllers
@@ -9,25 +11,20 @@ namespace Case_Api.Controllers
     public class AdvertizerController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IMapper _mapper;
 
-        public AdvertizerController(ApplicationDbContext context)
+        public AdvertizerController(ApplicationDbContext context, IMapper mapper)
         {
             _context = context;
+            _mapper = mapper;
         }
+        
         [HttpGet]
         public IActionResult Index()
         {
-            return Ok(_context.Ads.Select(ad => new AdvertizerDto
-            {
-                Id = ad.Id,
-                Title = ad.Title,
-                DateCreated = ad.DateCreated,
-                Description = ad.Description,
-                ImageUrl = ad.ImageUrl,
-                Price = ad.Price,
-
-            }).ToList());
+            return Ok(_context.Ads.Select(ad => _mapper.Map<AdvertizerDto>(ad)));
         }
+
         [HttpGet]
         [Route("{id}")]
         public IActionResult GetOne(int id)
@@ -35,66 +32,49 @@ namespace Case_Api.Controllers
             var ad = _context.Ads.FirstOrDefault(e => e.Id == id);
             if (ad == null)
                 return NotFound();
-            var result = new AdvertizerDto
-            {
-                Id = ad.Id,
-                Title = ad.Title,
-                DateCreated = ad.DateCreated,
-                Description = ad.Description,
-                ImageUrl = ad.ImageUrl,
-                Price = ad.Price,
-            };
-            return Ok(result);
+
+            var model = _mapper.Map<AdvertizerDto>(ad);
+            return Ok(model);
         }
+
         [HttpPost]
         public IActionResult Create(CreateAdvertizerDto ad)
         {
-            var advertizer = new Advertizer()
-            {
-                Title = ad.Title,
-                DateCreated = ad.DateCreated,
-                Description = ad.Description,
-                ImageUrl = ad.ImageUrl,
-                Price = ad.Price,
-            };
-            _context.Ads.Add(advertizer);
+            var model = _mapper.Map<Advertizer>(ad);
+            _context.Ads.Add(model);
             _context.SaveChanges();
 
-            var adDto = new AdvertizerDto()
-            {
-                Id = advertizer.Id,
-                Title = advertizer.Title,
-                DateCreated = advertizer.DateCreated,
-                Description = advertizer.Description,
-                ImageUrl = advertizer.ImageUrl,
-                Price = advertizer.Price,
-            };
-            return CreatedAtAction(nameof(GetOne), new { id = advertizer.Id }, adDto);
+            var modelDto = _mapper.Map<AdvertizerDto>(model);
+
+            return CreatedAtAction(nameof(GetOne), new { id = model.Id }, modelDto);
         }
+
         [HttpPut]
         [Route("{id}")]
         public IActionResult Update(int id, UpdateAdvertizerDto advertizer)
         {
             var ad = _context.Ads.FirstOrDefault(e => e.Id == id);
-            if (ad == null) return NotFound();
+            if (ad == null) 
+                return NotFound();
 
-            ad.Title = advertizer.Title;
-            ad.DateCreated = advertizer.DateCreated;
-            ad.Description = advertizer.Description;
-            ad.ImageUrl = advertizer.ImageUrl;
-            ad.Price = advertizer.Price;
-
+            _mapper.Map(advertizer, ad);
             _context.SaveChanges();
+
             return NoContent();
         }
+
+        [Authorize(Roles = "Admin")]
         [HttpDelete]
         [Route("{id}")]
         public IActionResult Delete(int id)
         {
             var ad = _context.Ads.FirstOrDefault(e => e.Id == id);
-            if (ad == null) return NotFound();
+            if (ad == null) 
+                return NotFound();
+
             _context.Ads.Remove(ad);
             _context.SaveChanges();
+
             return NoContent();
         }
     }
